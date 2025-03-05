@@ -10,3 +10,4 @@ sci_lingo/test.csv
 sci_lingo/train.csv
 sci_lingo/validation.csv
 best_rf_model.pkl
+label_encoder.pkl
