@@ -42,7 +42,7 @@ In modern retrieval-augmented generation (RAG) pipelines, accurately fetching th
    - This prompt can then be passed to a language model to generate an answer, thereby completing the RAG pipeline.
 
 ### Diagram
-
+<script type="module"> import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@9/dist/mermaid.esm.min.mjs'; mermaid.initialize({startOnLoad:true}); </script>
 graph TD
 A[User Query] --> B[Universal Embedding]
 B --> C[RF Classifier]
