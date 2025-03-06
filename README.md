@@ -42,6 +42,7 @@ In modern retrieval-augmented generation (RAG) pipelines, accurately fetching th
    - This prompt can then be passed to a language model to generate an answer, thereby completing the RAG pipeline.
 
 ### Diagram
+'''
 <script type="module"> import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@9/dist/mermaid.esm.min.mjs'; mermaid.initialize({startOnLoad:true}); </script>
 graph TD
 A[User Query] --> B[Universal Embedding]
@@ -54,7 +55,7 @@ F --> G[Query ChromaDB for Similarity]
 G --> H[Retrieve Top Document]
 H --> I[Construct Final Prompt]
 I --> J[Pass Prompt to LLM for Generation]
-
+'''
 ##This final prompt is printed to the console, ready to be passed on to an LLM for answer generation
 
 
