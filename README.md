@@ -42,20 +42,22 @@ In modern retrieval-augmented generation (RAG) pipelines, accurately fetching th
    - This prompt can then be passed to a language model to generate an answer, thereby completing the RAG pipeline.
 
 ### Diagram
-'''
+
 <script type="module"> import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@9/dist/mermaid.esm.min.mjs'; mermaid.initialize({startOnLoad:true}); </script>
-graph TD
-A[User Query] --> B[Universal Embedding]
-B --> C[RF Classifier]
-C -->|General-Knowledge| D[Use Universal Model for Q & Docs]
-C -->|Other Domains| E[Re-embed Query & Docs via Domain-Specific Model]
-D --> F[Index Query & Docs in ChromaDB]
-E --> F
-F --> G[Query ChromaDB for Similarity]
-G --> H[Retrieve Top Document]
-H --> I[Construct Final Prompt]
-I --> J[Pass Prompt to LLM for Generation]
-'''
+<pre class="mermaid">
+flowchart TD
+  A[User Query] --> B[Universal Embedding]
+  B --> C[RF Classifier]
+  C -->|General-Knowledge| D[Use Universal Model for Q & Docs]
+  C -->|Other Domains| E[Re-embed Query & Docs via Domain-Specific Model]
+  D --> F[Index Query & Docs in ChromaDB]
+  E --> F
+  F --> G[Query ChromaDB for Similarity]
+  G --> H[Retrieve Top Document]
+  H --> I[Construct Final Prompt]
+  I --> J[Pass Prompt to LLM for Generation]
+</pre>
+
 ##This final prompt is printed to the console, ready to be passed on to an LLM for answer generation
 
 
