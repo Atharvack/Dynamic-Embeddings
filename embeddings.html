@@ -17687,82 +17687,202 @@ Requirement already satisfied: pyasn1&lt;0.7.0,&gt;=0.4.6 in c:\users\kulka\.con
 
 <span class="c1"># --------------------- Main Function ------------------------</span>
 
-<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
-    <span class="c1"># Get query and classify domain</span>
-    <span class="n">query</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Enter your query: &quot;</span><span class="p">)</span>
-    <span class="n">domain</span> <span class="o">=</span> <span class="n">classify_query</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+<span class="c1"># def main():</span>
+<span class="c1">#     # Get query and classify domain</span>
+<span class="c1">#     query = input(&quot;Enter your query: &quot;)</span>
+<span class="c1">#     domain = classify_query(query)</span>
     
-    <span class="c1"># Get embedding model for this domain</span>
+<span class="c1">#     # Get embedding model for this domain</span>
+<span class="c1">#     model, tokenizer = get_embedding_model(domain)</span>
+    
+<span class="c1">#     # Embed the query</span>
+<span class="c1">#     query_embedding = embed_text(query, model, tokenizer)</span>
+<span class="c1">#     print(&quot;Query embedding shape:&quot;, query_embedding.shape)</span>
+    
+   
+<span class="c1">#     loader = DuckDuckGoWebLoader(query, num_results=5)</span>
+<span class="c1">#     docs = loader.load()</span>
+<span class="c1">#     json_output = json.dumps(docs, ensure_ascii=False, indent=2)</span>
+<span class="c1">#     print(json_output)</span>
+<span class="c1">#     json_dump = json.loads(json_output)</span>
+<span class="c1">#     print(json_dump)</span>
+    
+    
+<span class="c1">#     # Initialize ChromaDB (ephemeral)</span>
+<span class="c1">#     client = chromadb.EphemeralClient()</span>
+<span class="c1">#     collection = client.create_collection(</span>
+<span class="c1">#     name=&quot;documents&quot;,</span>
+<span class="c1">#     metadata={&quot;hnsw:space&quot;: &quot;cosine&quot;}  #</span>
+<span class="c1"># )</span>
+    
+<span class="c1">#     # Process and index documents</span>
+<span class="c1">#     ids, embeddings, metadatas,docs_texts = [], [], [],[]</span>
+<span class="c1">#     for doc in json_dump:</span>
+<span class="c1">#         text = doc[&quot;content&quot;]</span>
+<span class="c1">#         preprocessed = preprocess_text(text)</span>
+<span class="c1">#         embedding = embed_text(preprocessed, model, tokenizer).tolist()</span>
+        
+<span class="c1">#         ids.append(doc[&quot;link&quot;])</span>
+<span class="c1">#         embeddings.append(embedding)</span>
+<span class="c1">#         metadatas.append({&quot;title&quot;: doc[&quot;title&quot;], &quot;source&quot;: doc[&quot;link&quot;]})</span>
+<span class="c1">#         docs_texts.append(text) </span>
+    
+<span class="c1">#     # Add documents to ChromaDB</span>
+<span class="c1">#         collection.add(ids=ids, embeddings=embeddings, metadatas=metadatas,documents=docs_texts)</span>
+<span class="c1">#         print(f&quot;Indexed {collection.count()} documents.&quot;)</span>
+
+     
+<span class="c1">#     # Query the collection</span>
+<span class="c1">#     results = collection.query(</span>
+<span class="c1">#         query_embeddings=[query_embedding.tolist()],</span>
+<span class="c1">#         n_results=5,</span>
+<span class="c1">#         include=[&quot;documents&quot;,&quot;metadatas&quot;, &quot;distances&quot;]  # Include distances to compute similarity</span>
+<span class="c1">#     )</span>
+
+    
+<span class="c1">#     print(&quot;\nTop search results:&quot;)</span>
+<span class="c1">#     for i, metadata in enumerate(results[&quot;metadatas&quot;][0]):</span>
+<span class="c1">#         similarity_score = 1 - results[&quot;distances&quot;][0][i]  # Convert distance to similarity</span>
+<span class="c1">#         print(f&quot;Title: {metadata[&#39;title&#39;]}&quot;)</span>
+<span class="c1">#         print(f&quot;Source: {metadata[&#39;source&#39;]}&quot;)</span>
+<span class="c1">#         print(f&quot;Cosine Similarity: {similarity_score:.3f}\n&quot;)  # Adjusted label</span>
+
+<span class="c1">#     context_documents = results[&quot;documents&quot;][0][0]</span>
+    
+    
+<span class="c1">#     final_prompt = &quot;Query: &quot; + query + &quot;\nContext: &quot; + context_documents</span>
+<span class="c1">#     print(&quot;\nFinal prompt to be passed to the LLM:&quot;)</span>
+<span class="c1">#     print(final_prompt)</span>
+
+
+    <span class="c1"># Delete an existing collection</span>
+    <span class="c1"># client.delete_collection(name=&quot;documents&quot;)</span>
+
+<span class="c1"># --------------------- Main Function with Caching ------------------------</span>
+<span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">query_cache</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Processes a user query, using a cache to store and retrieve results for repeated queries.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># --- 1. CHECK CACHE ---</span>
+    <span class="c1"># If the query is already in our cache, return the stored result.</span>
+    <span class="k">if</span> <span class="n">query</span> <span class="ow">in</span> <span class="n">query_cache</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- Cache Hit! Retrieving results from cache. ---&quot;</span><span class="p">)</span>
+        <span class="n">cached_data</span> <span class="o">=</span> <span class="n">query_cache</span><span class="p">[</span><span class="n">query</span><span class="p">]</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">cached_data</span><span class="p">[</span><span class="s2">&quot;results&quot;</span><span class="p">]</span>
+        <span class="n">final_prompt</span> <span class="o">=</span> <span class="n">cached_data</span><span class="p">[</span><span class="s2">&quot;final_prompt&quot;</span><span class="p">]</span>
+        
+        <span class="c1"># Display the cached results</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Top search results:&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;metadatas&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="n">similarity_score</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;distances&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Title: </span><span class="si">{</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Source: </span><span class="si">{</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;source&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cosine Similarity: </span><span class="si">{</span><span class="n">similarity_score</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Final prompt to be passed to the LLM:&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">final_prompt</span><span class="p">)</span>
+        
+        <span class="c1"># Stop further execution for this query</span>
+        <span class="k">return</span>
+
+    <span class="c1"># --- 2. PROCESS IF NOT IN CACHE (CACHE MISS) ---</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- Cache Miss. Processing new query... ---&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Get domain and appropriate model</span>
+    <span class="n">domain</span> <span class="o">=</span> <span class="n">classify_query</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
     <span class="n">model</span><span class="p">,</span> <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">get_embedding_model</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
     
     <span class="c1"># Embed the query</span>
     <span class="n">query_embedding</span> <span class="o">=</span> <span class="n">embed_text</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Query embedding shape:&quot;</span><span class="p">,</span> <span class="n">query_embedding</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
     
-   
+    <span class="c1"># Fetch documents from the web</span>
     <span class="n">loader</span> <span class="o">=</span> <span class="n">DuckDuckGoWebLoader</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">num_results</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
     <span class="n">docs</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
-    <span class="n">json_output</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">docs</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">json_output</span><span class="p">)</span>
-    <span class="n">json_dump</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">json_output</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">json_dump</span><span class="p">)</span>
+    <span class="n">json_dump</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">docs</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
     
-    
-    <span class="c1"># Initialize ChromaDB (ephemeral)</span>
+    <span class="c1"># Initialize ChromaDB and create a collection</span>
     <span class="n">client</span> <span class="o">=</span> <span class="n">chromadb</span><span class="o">.</span><span class="n">EphemeralClient</span><span class="p">()</span>
     <span class="n">collection</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">create_collection</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;documents&quot;</span><span class="p">,</span>
-    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;hnsw:space&quot;</span><span class="p">:</span> <span class="s2">&quot;cosine&quot;</span><span class="p">}</span>  <span class="c1">#</span>
-<span class="p">)</span>
+        <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;docs_</span><span class="si">{</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">10000</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="c1"># Use a random name to avoid conflicts per run</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;hnsw:space&quot;</span><span class="p">:</span> <span class="s2">&quot;cosine&quot;</span><span class="p">}</span>
+    <span class="p">)</span>
     
     <span class="c1"># Process and index documents</span>
-    <span class="n">ids</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">,</span> <span class="n">metadatas</span><span class="p">,</span><span class="n">docs_texts</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[],[]</span>
+    <span class="n">ids</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">,</span> <span class="n">metadatas</span><span class="p">,</span> <span class="n">docs_texts</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">json_dump</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No documents were found for this query.&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
+        
     <span class="k">for</span> <span class="n">doc</span> <span class="ow">in</span> <span class="n">json_dump</span><span class="p">:</span>
-        <span class="n">text</span> <span class="o">=</span> <span class="n">doc</span><span class="p">[</span><span class="s2">&quot;content&quot;</span><span class="p">]</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="n">doc</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;content&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">text</span><span class="p">:</span>
+            <span class="k">continue</span>
+        
         <span class="n">preprocessed</span> <span class="o">=</span> <span class="n">preprocess_text</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
         <span class="n">embedding</span> <span class="o">=</span> <span class="n">embed_text</span><span class="p">(</span><span class="n">preprocessed</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
         
         <span class="n">ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">doc</span><span class="p">[</span><span class="s2">&quot;link&quot;</span><span class="p">])</span>
         <span class="n">embeddings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">embedding</span><span class="p">)</span>
         <span class="n">metadatas</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="n">doc</span><span class="p">[</span><span class="s2">&quot;title&quot;</span><span class="p">],</span> <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">doc</span><span class="p">[</span><span class="s2">&quot;link&quot;</span><span class="p">]})</span>
-        <span class="n">docs_texts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">text</span><span class="p">)</span> 
-    
-    <span class="c1"># Add documents to ChromaDB</span>
-        <span class="n">collection</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ids</span><span class="o">=</span><span class="n">ids</span><span class="p">,</span> <span class="n">embeddings</span><span class="o">=</span><span class="n">embeddings</span><span class="p">,</span> <span class="n">metadatas</span><span class="o">=</span><span class="n">metadatas</span><span class="p">,</span><span class="n">documents</span><span class="o">=</span><span class="n">docs_texts</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Indexed </span><span class="si">{</span><span class="n">collection</span><span class="o">.</span><span class="n">count</span><span class="p">()</span><span class="si">}</span><span class="s2"> documents.&quot;</span><span class="p">)</span>
+        <span class="n">docs_texts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+        
+    <span class="n">collection</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ids</span><span class="o">=</span><span class="n">ids</span><span class="p">,</span> <span class="n">embeddings</span><span class="o">=</span><span class="n">embeddings</span><span class="p">,</span> <span class="n">metadatas</span><span class="o">=</span><span class="n">metadatas</span><span class="p">,</span> <span class="n">documents</span><span class="o">=</span><span class="n">docs_texts</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Indexed </span><span class="si">{</span><span class="n">collection</span><span class="o">.</span><span class="n">count</span><span class="p">()</span><span class="si">}</span><span class="s2"> documents.&quot;</span><span class="p">)</span>
 
-     
     <span class="c1"># Query the collection</span>
     <span class="n">results</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
         <span class="n">query_embeddings</span><span class="o">=</span><span class="p">[</span><span class="n">query_embedding</span><span class="o">.</span><span class="n">tolist</span><span class="p">()],</span>
-        <span class="n">n_results</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-        <span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;documents&quot;</span><span class="p">,</span><span class="s2">&quot;metadatas&quot;</span><span class="p">,</span> <span class="s2">&quot;distances&quot;</span><span class="p">]</span>  <span class="c1"># Include distances to compute similarity</span>
+        <span class="n">n_results</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="p">)),</span> <span class="c1"># Ensure n_results is not greater than the number of items</span>
+        <span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;documents&quot;</span><span class="p">,</span> <span class="s2">&quot;metadatas&quot;</span><span class="p">,</span> <span class="s2">&quot;distances&quot;</span><span class="p">]</span>
     <span class="p">)</span>
-
     
+    <span class="c1"># Display search results</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Top search results:&quot;</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;metadatas&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]):</span>
-        <span class="n">similarity_score</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;distances&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>  <span class="c1"># Convert distance to similarity</span>
+        <span class="n">similarity_score</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;distances&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Title: </span><span class="si">{</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Source: </span><span class="si">{</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;source&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cosine Similarity: </span><span class="si">{</span><span class="n">similarity_score</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># Adjusted label</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cosine Similarity: </span><span class="si">{</span><span class="n">similarity_score</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    <span class="n">context_documents</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;documents&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
-    
-    
+    <span class="n">context_documents</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;documents&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;documents&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">else</span> <span class="s2">&quot;No relevant context found.&quot;</span>
     <span class="n">final_prompt</span> <span class="o">=</span> <span class="s2">&quot;Query: &quot;</span> <span class="o">+</span> <span class="n">query</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Context: &quot;</span> <span class="o">+</span> <span class="n">context_documents</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Final prompt to be passed to the LLM:&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">final_prompt</span><span class="p">)</span>
 
-
-    <span class="c1"># Delete an existing collection</span>
-    <span class="c1"># client.delete_collection(name=&quot;documents&quot;)</span>
-
-
+    <span class="c1"># --- 3. STORE IN CACHE ---</span>
+    <span class="c1"># Save the new results to the cache before exiting.</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- Storing results in cache for future use. ---&quot;</span><span class="p">)</span>
+    <span class="n">query_cache</span><span class="p">[</span><span class="n">query</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;results&quot;</span><span class="p">:</span> <span class="n">results</span><span class="p">,</span>
+        <span class="s2">&quot;final_prompt&quot;</span><span class="p">:</span> <span class="n">final_prompt</span>
+    <span class="p">}</span>
     
 
+<span class="c1"># if __name__ == &quot;__main__&quot;:</span>
+<span class="c1">#     main()</span>
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-    <span class="n">main</span><span class="p">()</span>
+    <span class="c1"># Initialize the cache as an empty dictionary. </span>
+    <span class="c1"># It will persist as long as this script is running.</span>
+    <span class="n">query_cache</span> <span class="o">=</span> <span class="p">{}</span>
+    
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Welcome to the Dynamic Embedding Search System. Type &#39;exit&#39; to quit.&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Loop to allow for multiple queries in one session</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="c1"># Get user input</span>
+        <span class="n">user_query</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Enter your query: &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        
+        <span class="c1"># Check for exit condition</span>
+        <span class="k">if</span> <span class="n">user_query</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;exit&#39;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Exiting program.&quot;</span><span class="p">)</span>
+            <span class="k">break</span>
+        
+        <span class="c1"># If input is empty, prompt again</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">user_query</span><span class="p">:</span>
+            <span class="k">continue</span>
+            
+        <span class="c1"># Call the main function with the query and the cache</span>
+        <span class="n">main</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="n">user_query</span><span class="p">,</span> <span class="n">query_cache</span><span class="o">=</span><span class="n">query_cache</span><span class="p">)</span>
 </pre></div>
 
      </div>
